@@ -1,0 +1,82 @@
+#define BLYNK_TEMPLATE_ID "TMPL3WksliEvY"
+#define BLYNK_TEMPLATE_NAME "message sender"
+#define BLYNK_AUTH_TOKEN "ZZfb3O0mTcGpyXdLfEOnJLzZsJBdbWzD"
+#define BLYNK_PRINT Serial
+
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+#include <TinyGPS++.h>
+#include <BlynkWidgets.h> // Include Blynk button widget
+
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "9179493035";
+char pass[] = "987654321";
+
+// Define the pin connected to the LED
+const int ledPin = 2; // Change this to the GPIO pin connected to your LED
+
+// Define GPS serial port
+HardwareSerial gpsSerial(1);
+
+// Create a TinyGPS++ object
+TinyGPSPlus gps;
+
+void setup() {
+  Serial.begin(9600);
+  Blynk.begin(auth, ssid, pass, "blynk.cloud", 80);
+
+  pinMode(ledPin, OUTPUT); // Set the LED pin as an output
+
+  // Initialize GPS serial port
+  gpsSerial.begin(9600, SERIAL_8N1, 16, 17); // TX pin: GPIO 16, RX pin: GPIO 17
+}
+
+void loop() {
+  Blynk.run();
+  readGPSData();
+}
+
+// Function to read GPS data
+void readGPSData() {
+  while (gpsSerial.available() > 0) {
+    if (gps.encode(gpsSerial.read())) {
+      if (gps.location.isValid()) {
+        // Send GPS data to Blynk app
+        Blynk.virtualWrite(V1, gps.location.lat(), gps.location.lng());
+      }
+    }
+  }
+}
+
+// Function to handle virtual pin writes (LED control)
+BLYNK_WRITE(V0) {
+  int buttonState = param.asInt(); // Read the state from the Blynk app (0 or 1)
+
+  if (buttonState == HIGH) {
+    // Button is pressed, send location
+    sendLocation();
+  }
+}
+
+// Function to send location via SMS or other method
+void sendLocation() {
+  if (gps.location.isValid()) {
+    // Retrieve latitude and longitude
+    float latitude = gps.location.lat();
+    float longitude = gps.location.lng();
+
+    // Format the location information
+    String locationMsg = "Latitude: " + String(latitude, 6) + ", Longitude: " + String(longitude, 6);
+
+   
+    // Send the location message via SMS using Blynk's notification feature
+    Blynk.notify("Location: " + locationMsg );
+
+    // Print debug information to Serial Monitor
+    Serial.println("Location sent:");
+    Serial.println(locationMsg);
+
+  } else {
+    Serial.println("Invalid GPS location, unable to send location.");
+  }
+}
